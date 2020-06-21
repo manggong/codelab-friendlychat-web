@@ -111,6 +111,40 @@ function loadMessages() {
 // This first saves the image in Firebase storage.
 function saveImageMessage(file) {
   // TODO 9: Posts a new image as a message.
+  firebase
+    .firestore()
+    .collection("messages")
+    .add({
+      name: getUserName(),
+      imageUrl: LOADING_IMAGE_URL,
+      profilePicUrl: getProfilePicUrl(),
+      timestamp: firebase.firestore.FieldValue.serverTimestamp()
+    })
+    .then(function(messageRef) {
+      // 2 - Upload the image to Cloud Storage.
+      const filePath =
+        firebase.auth().currentUser.uid + "/" + messageRef.id + "/" + file.name;
+      return firebase
+        .storage()
+        .ref(filePath)
+        .put(file)
+        .then(function(fileSnapshot) {
+          // 3 - Generate a public URL for the file.
+          return fileSnapshot.ref.getDownloadURL().then(url => {
+            // 4 - Update the chat message placeholder with the image's URL.
+            return messageRef.update({
+              imageUrl: url,
+              storageUri: fileSnapshot.metadata.fullPath
+            });
+          });
+        });
+    })
+    .catch(function(error) {
+      console.error(
+        "There was an error uploading a file to Cloud Storage:",
+        error
+      );
+    });
 }
 
 // Saves the messaging device token to the datastore.
@@ -126,14 +160,14 @@ function requestNotificationsPermissions() {
 // Triggered when a file is selected via the media picker.
 function onMediaFileSelected(event) {
   event.preventDefault();
-  var file = event.target.files[0];
+  const file = event.target.files[0];
 
   // Clear the selection in the file picker input.
   imageFormElement.reset();
 
   // Check if the file is an image.
   if (!file.type.match("image.*")) {
-    var data = {
+    const data = {
       message: "You can only share images",
       timeout: 2000
     };
@@ -164,8 +198,8 @@ function authStateObserver(user) {
   if (user) {
     // User is signed in!
     // Get the signed-in user's profile pic and name.
-    var profilePicUrl = getProfilePicUrl();
-    var userName = getUserName();
+    const profilePicUrl = getProfilePicUrl();
+    const userName = getUserName();
 
     // Set the user's profile pic and name.
     userPicElement.style.backgroundImage =
